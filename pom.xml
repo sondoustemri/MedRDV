@@ -23,6 +23,16 @@
         <spring-cloud.version>2025.0.0</spring-cloud.version>
     </properties>
 
+    <modules>
+        <module>service-patients</module>
+        <module>eureka-server</module>
+        <module>gateway-service</module>
+        <module>config-server</module>
+        <module>service-praticiens</module>
+        <module>service-rendezvous</module>
+        <module>service-rendezvous</module>
+    </modules>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
