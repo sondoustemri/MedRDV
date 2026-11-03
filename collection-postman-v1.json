@@ -518,6 +518,27 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Voir Rendez-vous Enrichi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/appointments/1/enriched",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "appointments",
+                "1",
+                "enriched"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
