@@ -32,7 +32,6 @@ public class Appointment {
 
     public Appointment() {}
 
-    // Getters et Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getPatientId() { return patientId; }

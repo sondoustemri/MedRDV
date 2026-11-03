@@ -39,14 +39,12 @@ public class AppointmentService {
     }
 
     public Appointment createAppointment(Appointment appointment) {
-        // 1. Vérifier le patient
         try {
             patientClient.getPatientById(appointment.getPatientId());
         } catch (FeignException.NotFound e) {
             throw new RuntimeException("Patient introuvable avec l'ID " + appointment.getPatientId());
         }
 
-        // 2. Vérifier le docteur
         try {
             praticienClient.getDoctorById(appointment.getDoctorId());
         } catch (FeignException.NotFound e) {
@@ -76,7 +74,6 @@ public class AppointmentService {
         appointmentRepository.delete(appointment);
     }
 
-    // === NOUVELLE MÉTHODE ENRICHIE ===
     @Transactional(readOnly = true)
     public AppointmentEnrichedDTO getEnrichedAppointment(Long id) {
         Appointment appointment = getAppointmentById(id);
@@ -84,12 +81,10 @@ public class AppointmentService {
         AppointmentEnrichedDTO enriched = new AppointmentEnrichedDTO();
         enriched.setAppointment(appointment);
 
-        // Appels Feign pour récupérer les infos des autres microservices
         enriched.setPatient(patientClient.getPatientById(appointment.getPatientId()));
         enriched.setDoctor(praticienClient.getDoctorById(appointment.getDoctorId()));
         enriched.setAvailability(praticienClient.getAvailabilityById(appointment.getDoctorId(), appointment.getAvailabilityId()));
 
-        // Le dossier médical est optionnel (le patient peut ne pas en avoir encore)
         try {
             enriched.setMedicalRecord(patientClient.getMedicalRecordByPatientId(appointment.getPatientId()));
         } catch (Exception e) {
