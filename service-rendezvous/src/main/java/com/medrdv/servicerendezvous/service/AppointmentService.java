@@ -4,6 +4,7 @@ import com.medrdv.servicerendezvous.client.PatientClient;
 import com.medrdv.servicerendezvous.client.PraticienClient;
 import com.medrdv.servicerendezvous.dto.AppointmentEnrichedDTO;
 import com.medrdv.servicerendezvous.entity.Appointment;
+import com.medrdv.servicerendezvous.publisher.NotificationPublisher; // <-- NOUVEL IMPORT
 import com.medrdv.servicerendezvous.repository.AppointmentRepository;
 import feign.FeignException;
 import org.springframework.stereotype.Service;
@@ -18,13 +19,17 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final PatientClient patientClient;
     private final PraticienClient praticienClient;
+    private final NotificationPublisher notificationPublisher; // <-- NOUVEL ATTRIBUT
 
+    // <-- CONSTRUCTEUR MODIFIÉ POUR INJECTER LE PUBLISHER -->
     public AppointmentService(AppointmentRepository appointmentRepository,
                               PatientClient patientClient,
-                              PraticienClient praticienClient) {
+                              PraticienClient praticienClient,
+                              NotificationPublisher notificationPublisher) {
         this.appointmentRepository = appointmentRepository;
         this.patientClient = patientClient;
         this.praticienClient = praticienClient;
+        this.notificationPublisher = notificationPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -63,10 +68,19 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
 
+    // <-- MÉTHODE MODIFIÉE POUR ENVOYER LE MESSAGE RABBITMQ -->
     public Appointment updateStatut(Long id, String nouveauStatut) {
         Appointment appointment = getAppointmentById(id);
         appointment.setStatut(nouveauStatut);
-        return appointmentRepository.save(appointment);
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+
+        // Si le nouveau statut est "CONFIRME", on envoie la notification !
+        if ("CONFIRME".equalsIgnoreCase(nouveauStatut)) {
+            String message = "Le rendez-vous n°" + savedAppointment.getId() + " a été CONFIRMÉ avec succès.";
+            notificationPublisher.sendNotification(message);
+        }
+
+        return savedAppointment;
     }
 
     public void deleteAppointment(Long id) {
