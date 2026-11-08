@@ -24,6 +24,9 @@ public class Appointment {
     @Column(name = "availability_id")
     private Long availabilityId;
 
+    @Column(unique = true)
+    private String idempotencyKey;
+
     @NotBlank(message = "Le motif est obligatoire")
     private String motif;
 
@@ -44,4 +47,11 @@ public class Appointment {
     public void setMotif(String motif) { this.motif = motif; }
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+    }
 }

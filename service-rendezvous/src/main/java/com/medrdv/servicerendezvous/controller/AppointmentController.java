@@ -31,8 +31,12 @@ public class AppointmentController {
     }
 
     @PostMapping
-    public ResponseEntity<Appointment> createAppointment(@Valid @RequestBody Appointment appointment) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(appointmentService.createAppointment(appointment));
+    public ResponseEntity<Appointment> createAppointment(
+            @Valid @RequestBody Appointment appointment,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(appointmentService.createAppointment(appointment, idempotencyKey));
     }
 
     @PatchMapping("/{id}/statut")
