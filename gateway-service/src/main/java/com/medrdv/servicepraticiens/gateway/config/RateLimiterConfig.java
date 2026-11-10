@@ -12,14 +12,12 @@ import reactor.core.publisher.Mono;
 @Configuration
 public class RateLimiterConfig {
 
-    // 1. Le bean qui gère le compteur dans Redis (5 req/s, burst 10)
     @Bean
     @Primary
     public RedisRateLimiter redisRateLimiter() {
         return new RedisRateLimiter(5, 10, 1);
     }
 
-    // 2. Le bean qui identifie l'utilisateur (par IP)
     @Bean
     public KeyResolver userKeyResolver() {
         return exchange -> {
@@ -32,20 +30,38 @@ public class RateLimiterConfig {
         };
     }
 
-    // 3. La route définie en Java avec le filtre attaché
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
+                // 1. Route pour service-rendezvous (avec Rate Limiter)
                 .route("service-rendezvous-route", r -> r
                         .path("/service-rendezvous/**")
                         .filters(f -> f
-                                .stripPrefix(1) // <-- Retire "/service-rendezvous" avant de transmettre
+                                .stripPrefix(1)
                                 .requestRateLimiter(config -> config
                                         .setRateLimiter(redisRateLimiter())
                                         .setKeyResolver(userKeyResolver())
                                 )
                         )
                         .uri("lb://service-rendezvous")
+                )
+                // 2. Route pour service-patients
+                .route("service-patients-route", r -> r
+                        .path("/service-patients/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("lb://service-patients")
+                )
+                // 3. Route pour service-praticiens
+                .route("service-praticiens-route", r -> r
+                        .path("/service-praticiens/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("lb://service-praticiens")
+                )
+                // 4. Route pour service-notification (optionnel)
+                .route("service-notification-route", r -> r
+                        .path("/service-notification/**")
+                        .filters(f -> f.stripPrefix(1))
+                        .uri("lb://service-notification")
                 )
                 .build();
     }
