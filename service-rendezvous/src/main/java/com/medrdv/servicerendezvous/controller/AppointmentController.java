@@ -1,5 +1,6 @@
 package com.medrdv.servicerendezvous.controller;
 
+import com.medrdv.servicerendezvous.dto.AppointmentDTO;
 import com.medrdv.servicerendezvous.dto.AppointmentEnrichedDTO;
 import com.medrdv.servicerendezvous.entity.Appointment;
 import com.medrdv.servicerendezvous.service.AppointmentService;
@@ -32,8 +33,15 @@ public class AppointmentController {
 
     @PostMapping
     public ResponseEntity<Appointment> createAppointment(
-            @Valid @RequestBody Appointment appointment,
+            @Valid @RequestBody AppointmentDTO dto,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+
+        // Conversion du DTO vers l'entité Appointment
+        Appointment appointment = new Appointment();
+        appointment.setPatientId(dto.getPatientId());
+        appointment.setDoctorId(dto.getDoctorId());
+        appointment.setAvailabilityId(dto.getAvailabilityId());
+        appointment.setMotif(dto.getMotif());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(appointmentService.createAppointment(appointment, idempotencyKey));
@@ -50,7 +58,7 @@ public class AppointmentController {
         return ResponseEntity.noContent().build();
     }
 
-    // === NOUVEL ENDPOINT ENRICHI ===
+    // === ENDPOINT ENRICHI ===
     @GetMapping("/{id}/enriched")
     public ResponseEntity<AppointmentEnrichedDTO> getEnrichedAppointment(@PathVariable Long id) {
         return ResponseEntity.ok(appointmentService.getEnrichedAppointment(id));

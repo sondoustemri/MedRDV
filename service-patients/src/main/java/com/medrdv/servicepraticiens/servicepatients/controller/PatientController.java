@@ -1,7 +1,9 @@
 package com.medrdv.servicepraticiens.servicepatients.controller;
 
+import com.medrdv.servicepraticiens.servicepatients.dto.PatientDTO;
 import com.medrdv.servicepraticiens.servicepatients.entity.Patient;
 import com.medrdv.servicepraticiens.servicepatients.service.PatientService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,19 +32,25 @@ public class PatientController {
     }
 
     @PostMapping
-    public Patient createPatient(@RequestBody Patient patient) {
+    public Patient createPatient(@Valid @RequestBody PatientDTO patientDTO) {
+        Patient patient = new Patient();
+        patient.setNom(patientDTO.getNom());
+        patient.setEmail(patientDTO.getEmail());
+        patient.setDateNaissance(patientDTO.getDateNaissance());
+        patient.setTelephone(patientDTO.getTelephone());
+        patient.setNumeroSecu(patientDTO.getNumeroSecu());
         return patientService.savePatient(patient);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Patient> updatePatient(@PathVariable Long id, @RequestBody Patient patientDetails) {
+    public ResponseEntity<Patient> updatePatient(@PathVariable Long id, @Valid @RequestBody PatientDTO patientDTO) {
         return patientService.getPatientById(id)
                 .map(patient -> {
-                    patient.setNom(patientDetails.getNom());
-                    patient.setEmail(patientDetails.getEmail());
-                    patient.setDateNaissance(patientDetails.getDateNaissance());
-                    patient.setTelephone(patientDetails.getTelephone());
-                    patient.setNumeroSecu(patientDetails.getNumeroSecu());
+                    patient.setNom(patientDTO.getNom());
+                    patient.setEmail(patientDTO.getEmail());
+                    patient.setDateNaissance(patientDTO.getDateNaissance());
+                    patient.setTelephone(patientDTO.getTelephone());
+                    patient.setNumeroSecu(patientDTO.getNumeroSecu());
                     return ResponseEntity.ok(patientService.savePatient(patient));
                 })
                 .orElse(ResponseEntity.notFound().build());

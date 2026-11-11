@@ -1,5 +1,6 @@
 package com.medrdv.servicepraticiens.servicepatients.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -35,5 +36,13 @@ public class GlobalExceptionHandler {
         ex.getBindingResult().getFieldErrors().forEach(error ->
                 errors.put(error.getField(), error.getDefaultMessage()));
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+    }
+
+    // Gère les erreurs de doublons venant de la base de données (email ou numéro de sécurité sociale unique)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("erreur", "Un champ unique (email ou numéro de sécurité sociale) existe déjà.");
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 }

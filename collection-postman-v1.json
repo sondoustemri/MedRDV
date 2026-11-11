@@ -1,11 +1,11 @@
 {
   "info": {
-    "_postman_id": "46679c7b-3bb5-490c-8a62-403547673af0",
-    "name": "My Collection",
+    "_postman_id": "4542f57a-52cf-477a-8d27-aa598f4aec31",
+    "name": "My Collection Copy",
     "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "52734372",
-    "_collection_link": "https://go.postman.co/collection/52734372-46679c7b-3bb5-490c-8a62-403547673af0?source=collection_link"
+    "_exporter_id": "53713163",
+    "_collection_link": "https://go.postman.co/collection/53713163-4542f57a-52cf-477a-8d27-aa598f4aec31?source=collection_link"
   },
   "item": [
     {
@@ -194,6 +194,96 @@
                     "patients",
                     "{patientId}",
                     "medical-record"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Tests d'erreur",
+          "item": [
+            {
+              "name": "Erreur 400 - Email en double",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"nom\": \"Test Doublon\",\r\n    \"email\": \"jean.dupont@email.com\",\r\n    \"dateNaissance\": \"1990-01-01\",\r\n    \"telephone\": \"0600000000\",\r\n    \"numeroSecu\": \"1111111111111\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/patients",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "patients"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Erreur 400 - Nom manquant",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"nouveau@test.com\",\r\n    \"dateNaissance\": \"1990-01-01\",\r\n    \"telephone\": \"0600000000\",\r\n    \"numeroSecu\": \"2222222222222\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/patients",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "patients"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Erreur 404 - Patient inexistant",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/patients/999",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "patients",
+                    "999"
                   ]
                 }
               },
@@ -514,27 +604,6 @@
                   "key": "statut",
                   "value": "CONFIRME"
                 }
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Voir Rendez-vous Enrichi",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8083/appointments/1/enriched",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8083",
-              "path": [
-                "appointments",
-                "1",
-                "enriched"
               ]
             }
           },

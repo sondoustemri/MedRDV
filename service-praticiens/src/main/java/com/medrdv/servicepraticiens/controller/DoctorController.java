@@ -1,9 +1,9 @@
 package com.medrdv.servicepraticiens.controller;
 
+import com.medrdv.servicepraticiens.dto.DoctorDTO;
 import com.medrdv.servicepraticiens.entity.Doctor;
 import com.medrdv.servicepraticiens.service.DoctorService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,28 +20,44 @@ public class DoctorController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Doctor>> getAllDoctors() {
-        return ResponseEntity.ok(doctorService.getAllDoctors());
+    public List<Doctor> getAllDoctors() {
+        return doctorService.getAllDoctors();
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Doctor> getDoctorById(@PathVariable Long id) {
-        return ResponseEntity.ok(doctorService.getDoctorById(id));
+        return doctorService.getDoctorById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public ResponseEntity<Doctor> createDoctor(@Valid @RequestBody Doctor doctor) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(doctorService.createDoctor(doctor));
+    public Doctor createDoctor(@Valid @RequestBody DoctorDTO dto) {
+        Doctor doctor = new Doctor();
+        doctor.setNom(dto.getNom());
+        doctor.setSpecialite(dto.getSpecialite());
+        doctor.setTelephone(dto.getTelephone());
+        return doctorService.saveDoctor(doctor);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Doctor> updateDoctor(@PathVariable Long id, @Valid @RequestBody Doctor doctor) {
-        return ResponseEntity.ok(doctorService.updateDoctor(id, doctor));
+    public ResponseEntity<Doctor> updateDoctor(@PathVariable Long id, @Valid @RequestBody DoctorDTO dto) {
+        return doctorService.getDoctorById(id)
+                .map(doctor -> {
+                    doctor.setNom(dto.getNom());
+                    doctor.setSpecialite(dto.getSpecialite());
+                    doctor.setTelephone(dto.getTelephone());
+                    return ResponseEntity.ok(doctorService.saveDoctor(doctor));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDoctor(@PathVariable Long id) {
-        doctorService.deleteDoctor(id);
-        return ResponseEntity.noContent().build();
+        if (doctorService.getDoctorById(id).isPresent()) {
+            doctorService.deleteDoctor(id);
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 }
