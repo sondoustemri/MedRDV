@@ -105,6 +105,9 @@ Une deuxième requête avec la même clé renvoie une erreur 400 Bad Request "Op
 Si on envoie un ID de patient qui n'existe pas (ex: 99), OpenFeign renvoie une erreur gérée par le `GlobalExceptionHandler` (404 Not Found).
 ![Ressource Introuvable](./docs/capture-ressource-introuvable.png)
 
+**4. Consultation Enrichie :**
+L'endpoint `/enriched` agrège les données du rendez-vous, du patient, du dossier médical, du docteur et du créneau en une seule requête.
+![Consultation Enrichie](./docs/capture-consultation-enrichie.png)
 ---
 
 ## Prérequis et Instructions de lancement
