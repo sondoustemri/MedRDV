@@ -41,6 +41,11 @@ L'architecture est composée des applications Spring Boot suivantes :
 **Pourquoi le serveur Eureka ne s'enregistre-t-il pas lui-même ?**
 > *"Eureka est l'annuaire central. S'il s'enregistrait lui-même, il tenterait de se découvrir, ce qui créerait une boucle logique inutile et consommerait des ressources sans valeur ajoutée pour l'architecture."*
 
+## Jalon V3 : Config Server et Centralisation
+
+La configuration a été externalisée dans un dépôt Git (dossier `config-repo`) et est servie par un Spring Cloud Config Server (port 8888).
+
+
 ## Prérequis et Instructions de lancement
 
 ### Prérequis
