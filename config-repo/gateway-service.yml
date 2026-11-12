@@ -14,9 +14,30 @@ spring:
         webflux:
           discovery:
             locator:
-              enabled: false
+              enabled: true
+              lower-case-service-id: true
+          routes:
+            - id: service-rendezvous-route
+              uri: lb://service-rendezvous
+              predicates:
+                - Path=/service-rendezvous/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 5
+                    redis-rate-limiter.burstCapacity: 10
+                    key-resolver: "#{@userKeyResolver}"
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    gateway:
+      access: read-only

@@ -2,6 +2,7 @@ package com.medrdv.servicepraticiens.controller;
 
 import com.medrdv.servicepraticiens.dto.DoctorDTO;
 import com.medrdv.servicepraticiens.entity.Doctor;
+import com.medrdv.servicepraticiens.exception.ResourceNotFoundException;
 import com.medrdv.servicepraticiens.service.DoctorService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -26,9 +27,11 @@ public class DoctorController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Doctor> getDoctorById(@PathVariable Long id) {
-        return doctorService.getDoctorById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            return ResponseEntity.ok(doctorService.getDoctorById(id));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @PostMapping
@@ -37,27 +40,30 @@ public class DoctorController {
         doctor.setNom(dto.getNom());
         doctor.setSpecialite(dto.getSpecialite());
         doctor.setTelephone(dto.getTelephone());
-        return doctorService.saveDoctor(doctor);
+        return doctorService.createDoctor(doctor);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Doctor> updateDoctor(@PathVariable Long id, @Valid @RequestBody DoctorDTO dto) {
-        return doctorService.getDoctorById(id)
-                .map(doctor -> {
-                    doctor.setNom(dto.getNom());
-                    doctor.setSpecialite(dto.getSpecialite());
-                    doctor.setTelephone(dto.getTelephone());
-                    return ResponseEntity.ok(doctorService.saveDoctor(doctor));
-                })
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            Doctor doctorToUpdate = new Doctor();
+            doctorToUpdate.setNom(dto.getNom());
+            doctorToUpdate.setSpecialite(dto.getSpecialite());
+            doctorToUpdate.setTelephone(dto.getTelephone());
+
+            return ResponseEntity.ok(doctorService.updateDoctor(id, doctorToUpdate));
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDoctor(@PathVariable Long id) {
-        if (doctorService.getDoctorById(id).isPresent()) {
+        try {
             doctorService.deleteDoctor(id);
             return ResponseEntity.ok().build();
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.notFound().build();
     }
 }
