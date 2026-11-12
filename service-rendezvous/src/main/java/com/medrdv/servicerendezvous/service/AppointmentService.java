@@ -2,16 +2,14 @@ package com.medrdv.servicerendezvous.service;
 
 import com.medrdv.servicerendezvous.client.PatientClient;
 import com.medrdv.servicerendezvous.dto.AppointmentEnrichedDTO;
+import com.medrdv.servicerendezvous.dto.AvailabilityDTO;
 import com.medrdv.servicerendezvous.entity.Appointment;
-import com.medrdv.servicerendezvous.exception.ServiceExterneIndisponibleException;
 import com.medrdv.servicerendezvous.publisher.NotificationPublisher;
 import com.medrdv.servicerendezvous.repository.AppointmentRepository;
-import feign.FeignException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @Transactional
@@ -43,41 +41,32 @@ public class AppointmentService {
                 .orElseThrow(() -> new RuntimeException("Rendez-vous introuvable avec l'ID " + id));
     }
 
-    // === MÉTHODE MODIFIÉE POUR L'IDEMPOTENCE ===
+    // === MÉTHODE CORRIGÉE POUR LE TP V4 ===
     public Appointment createAppointment(Appointment appointment, String idempotencyKey) {
-        // 1. Vérifier si la clé a déjà été utilisée (Idempotence)
-        if (idempotencyKey != null && !idempotencyKey.isEmpty()) {
-            Optional<Appointment> existing = appointmentRepository.findByIdempotencyKey(idempotencyKey);
-            if (existing.isPresent()) {
-                return existing.get(); // Renvoie le rendez-vous existant sans en créer un nouveau
-            }
+
+        // 1. Vérification stricte de l'idempotence (selon le TP)
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 255) {
+            throw new IllegalArgumentException("Clé d'idempotence invalide.");
+        }
+        if (appointmentRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
+            throw new IllegalArgumentException("Opération déjà traitée.");
         }
 
-        // 2. Vérifier le patient
-        try {
-            resilientClientService.getPatientSecurise(appointment.getPatientId());
-        } catch (ServiceExterneIndisponibleException e) {
-            throw e;
-        } catch (FeignException.NotFound e) {
-            throw new RuntimeException("Patient introuvable avec l'ID " + appointment.getPatientId());
-        }
+        // 2. Vérifier le patient (pas de try/catch, le GlobalExceptionHandler gère)
+        resilientClientService.getPatientSecurise(appointment.getPatientId());
 
         // 3. Vérifier le docteur
-        try {
-            resilientClientService.getDoctorSecurise(appointment.getDoctorId());
-        } catch (ServiceExterneIndisponibleException e) {
-            throw e;
-        } catch (FeignException.NotFound e) {
-            throw new RuntimeException("Docteur introuvable avec l'ID " + appointment.getDoctorId());
-        }
+        resilientClientService.getDoctorSecurise(appointment.getDoctorId());
 
-        // 4. Vérifier le créneau
-        try {
-            resilientClientService.getAvailabilitySecurise(appointment.getDoctorId(), appointment.getAvailabilityId());
-        } catch (ServiceExterneIndisponibleException e) {
-            throw e;
-        } catch (FeignException.NotFound e) {
-            throw new RuntimeException("Créneau introuvable ou n'appartient pas à ce docteur.");
+        // 4. Vérifier le créneau ET la règle métier
+        AvailabilityDTO availability = resilientClientService.getAvailabilitySecurise(
+                appointment.getDoctorId(),
+                appointment.getAvailabilityId()
+        );
+
+        // RÈGLE MÉTIER DU TP : Le créneau doit être libre
+        if (!"LIBRE".equals(availability.getStatut())) {
+            throw new IllegalArgumentException("Refus métier : Ce créneau n'est plus disponible.");
         }
 
         // 5. Si tout est bon, on enregistre avec la clé

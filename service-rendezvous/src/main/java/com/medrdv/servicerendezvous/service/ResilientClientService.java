@@ -40,25 +40,40 @@ public class ResilientClientService {
         return praticienClient.getAvailabilityById(doctorId, availabilityId);
     }
 
-    // ===== FALLBACKS =====
+    // ===== FALLBACKS CORRIGÉS =====
+
     public PatientDTO fallbackPatient(Long patientId, Throwable t) {
-        if (t instanceof FeignException.NotFound) {
-            throw (FeignException.NotFound) t;
+        FeignException feignException = extraireFeignException(t);
+        if (feignException != null && feignException.status() == 404) {
+            throw feignException; // Laisse le GlobalExceptionHandler gérer le 404
         }
         throw new ServiceExterneIndisponibleException("Le service des patients est momentanément indisponible. Réessayez plus tard.");
     }
 
     public DoctorDTO fallbackDoctor(Long doctorId, Throwable t) {
-        if (t instanceof FeignException.NotFound) {
-            throw (FeignException.NotFound) t;
+        FeignException feignException = extraireFeignException(t);
+        if (feignException != null && feignException.status() == 404) {
+            throw feignException;
         }
         throw new ServiceExterneIndisponibleException("Le service des médecins est momentanément indisponible. Réessayez plus tard.");
     }
 
     public AvailabilityDTO fallbackAvailability(Long doctorId, Long availabilityId, Throwable t) {
-        if (t instanceof FeignException.NotFound) {
-            throw (FeignException.NotFound) t;
+        FeignException feignException = extraireFeignException(t);
+        if (feignException != null && feignException.status() == 404) {
+            throw feignException;
         }
         throw new ServiceExterneIndisponibleException("Le service des créneaux est momentanément indisponible. Réessayez plus tard.");
+    }
+
+    // Méthode utilitaire pour chercher l'exception Feign cachée dans les causes
+    private FeignException extraireFeignException(Throwable t) {
+        if (t instanceof FeignException) {
+            return (FeignException) t;
+        }
+        if (t.getCause() != null) {
+            return extraireFeignException(t.getCause());
+        }
+        return null;
     }
 }

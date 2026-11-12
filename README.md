@@ -24,27 +24,88 @@ L'architecture est composée des applications Spring Boot suivantes :
 
 ![Schéma de l'Architecture](./docs/architecture.png)
 
-## Dépendances ajoutées et leur rôle (Jalon V2)
+---
+
+## Jalon V2 : Eureka et Gateway (Routage Dynamique)
+
+### Dépendances ajoutées
 *   `spring-cloud-starter-netflix-eureka-server` : Annuaire de services (Eureka).
 *   `spring-cloud-starter-netflix-eureka-client` : Permet aux services de s'enregistrer sur Eureka.
 *   `spring-cloud-starter-gateway-server-webflux` : Point d'entrée unique (API Gateway).
 *   `spring-boot-starter-actuator` : Permet d'observer l'état des applications et les routes générées.
 *   `spring-cloud-starter-loadbalancer` : Pour la répartition de charge via la Gateway.
 
-## Expérience : Détection Automatique (Jalon V2)
+### Preuves de fonctionnement
+**1. Tableau de bord Eureka :**
+On y voit les services enregistrés (Gateway, Patients, Praticiens, Rendezvous).
+![Capture Eureka](./docs/capture-eureka.png)
+
+**2. Test de routage dynamique via Postman :**
+L'appel à `/service-patients/patients` via la Gateway (port 8080) est bien redirigé vers le microservice.
+![Test Routage Dynamique](./docs/capture-postman-routagedynamique.png)
+
+**3. Observation des routes via Actuator :**
+L'URL `/actuator/gateway/routes` montre les routes statiques (Rate Limiter) et dynamiques (générées par Eureka).
+![Capture Actuator](./docs/capture-actuator.png)
+
+**4. Métriques de la Gateway :**
+La métrique `spring.cloud.gateway.requests` prouve que la Gateway compte bien les requêtes traitées.
+![Capture Métriques](./docs/capture-métriques.png)
+
+### Expérience : Détection Automatique
 *   **Action :** J'ai arrêté le service `service-patients`.
 *   **Observation :** La route `SERVICE-PATIENTS` a disparu de l'URL `/actuator/gateway/routes` après environ 30 secondes.
 *   **Action :** J'ai redémarré `service-patients` sans toucher à la Gateway.
-*   **Observation :** La route est réapparue automatiquement après 30 secondes. La Gateway s'adapte dynamiquement à l'état d'Eureka.
+*   **Observation :** La route est réapparue automatiquement après 30 secondes. La Gateway s'adapte dynamiquement.
 
-## Question théorique
+### Question théorique
 **Pourquoi le serveur Eureka ne s'enregistre-t-il pas lui-même ?**
 > *"Eureka est l'annuaire central. S'il s'enregistrait lui-même, il tenterait de se découvrir, ce qui créerait une boucle logique inutile et consommerait des ressources sans valeur ajoutée pour l'architecture."*
+
+---
 
 ## Jalon V3 : Config Server et Centralisation
 
 La configuration a été externalisée dans un dépôt Git (dossier `config-repo`) et est servie par un Spring Cloud Config Server (port 8888).
 
+### 1. Structure du config-repo
+*   **application.properties** (Global) : Contient les configurations communes (Eureka, Actuator).
+*   **{service}.properties** (Spécifique) : Contient les configurations propres à chaque service (port, base de données, routes Gateway).
+
+### 2. Preuve de l'agrégation
+L'appel `GET http://localhost:8888/service-rendezvous/default` démontre l'agrégation : le Config Server renvoie une liste `propertySources` contenant d'abord les propriétés spécifiques du service, puis les propriétés globales.
+![Capture PropertySources](./docs/capture-propertySources-spécifique+global.png)
+
+### 3. Tests de bout en bout (Config centralisée)
+Puisque les fichiers locaux sont vides (hors `spring.config.import`), les services récupèrent bien leurs ports et bases de données depuis GitHub.
+*   **Test direct :**
+    ![Test Direct](./docs/capture-test-direct.png)
+*   **Test via Gateway :**
+    ![Test via Gateway](./docs/capture-test-viagateway.png)
+
+### 4. Problème d'amorçage (Bootstrap Problem)
+Les services `eureka-server` et `config-server` conservent leur configuration en local. En effet, si le Config Server était lui-même configuré à distance, les services ne pourraient pas démarrer correctement (dépendance circulaire). Les autres services n'ont plus aucune configuration métier en local.
+
+---
+
+## Jalon V4 : OpenFeign et Idempotence
+
+Le service `service-rendezvous` utilise **OpenFeign** pour valider l'existence du patient, du docteur et du créneau avant d'enregistrer un rendez-vous. Une **clé d'idempotence** est requise dans le Header pour éviter les doubles réservations.
+
+### Preuves de fonctionnement
+**1. Création réussie avec Idempotence :**
+La clé `Idempotency-Key` est envoyée dans le Header. Le rendez-vous est créé (201 Created).
+![Création avec Idempotence](./docs/capture-idempotence-rdv.png)
+
+**2. Rejet de doublon (Idempotence) :**
+Une deuxième requête avec la même clé renvoie une erreur 400 Bad Request "Opération déjà traitée".
+![Rejet de doublon](./docs/capture-idempotence-rdv-doublon.png)
+
+**3. Ressource introuvable (OpenFeign 404) :**
+Si on envoie un ID de patient qui n'existe pas (ex: 99), OpenFeign renvoie une erreur gérée par le `GlobalExceptionHandler` (404 Not Found).
+![Ressource Introuvable](./docs/capture-ressource-introuvable.png)
+
+---
 
 ## Prérequis et Instructions de lancement
 
@@ -52,7 +113,7 @@ La configuration a été externalisée dans un dépôt Git (dossier `config-repo
 *   Java 17 (JDK)
 *   Maven 3.8+
 *   IntelliJ IDEA
-*   Postman ou Swagger
+*   Postman
 
 ### Instructions de lancement
 1. Cloner le dépôt : `git clone https://github.com/sondoustemri/MedRDV.git`
