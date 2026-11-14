@@ -62,6 +62,28 @@ La métrique `spring.cloud.gateway.requests` prouve que la Gateway compte bien l
 **Pourquoi le serveur Eureka ne s'enregistre-t-il pas lui-même ?**
 > *"Eureka est l'annuaire central. S'il s'enregistrait lui-même, il tenterait de se découvrir, ce qui créerait une boucle logique inutile et consommerait des ressources sans valeur ajoutée pour l'architecture."*
 
+## Test du Load Balancing (Répartition de charge)
+
+Pour valider la répartition de charge (Load Balancing) gérée par Spring Cloud LoadBalancer via la Gateway, nous avons déployé deux instances du microservice `service-patients` sur des ports différents.
+
+### 1. Création de la deuxième instance
+Dans IntelliJ IDEA, nous avons dupliqué la configuration de lancement de `ServicePatientsApplication` et ajouté l'argument de programme `--server.port=8084` dans les *Program arguments*.
+*   **Instance 1** : `http://localhost:8081`
+*   **Instance 2** : `http://localhost:8084`
+
+Une fois les deux instances lancées, le tableau de bord Eureka (`http://localhost:8761`) affiche bien deux instances enregistrées pour le service `SERVICE-PATIENTS`.
+
+### 2. Test et visualisation
+Dans Postman, nous avons envoyé plusieurs requêtes successives (clics répétés sur "Send") sur l'URL de la Gateway :
+👉 `GET http://localhost:8080/service-patients/patients`
+
+En observant simultanément les consoles d'IntelliJ des deux instances, on constate une **alternance des requêtes** (Round-Robin) :
+*   La première requête s'affiche dans la console de l'instance tournant sur le port **8081**.
+*   La requête suivante s'affiche dans la console de l'instance tournant sur le port **8084**.
+*   Et ainsi de suite.
+
+**Conclusion :** La Gateway distribue équitablement le trafic entre les instances disponibles, garantissant ainsi la haute disponibilité et la montée en charge (scalabilité horizontale) de l'architecture.
+
 ---
 
 ## Jalon V3 : Config Server et Centralisation
