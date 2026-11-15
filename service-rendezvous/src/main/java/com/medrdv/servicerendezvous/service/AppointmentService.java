@@ -2,14 +2,19 @@ package com.medrdv.servicerendezvous.service;
 
 import com.medrdv.servicerendezvous.client.PatientClient;
 import com.medrdv.servicerendezvous.dto.AppointmentEnrichedDTO;
-import com.medrdv.servicerendezvous.dto.AvailabilityDTO;
+import com.medrdv.servicerendezvous.dto.NotificationEmailDto;
 import com.medrdv.servicerendezvous.entity.Appointment;
+import com.medrdv.servicerendezvous.exception.ServiceExterneIndisponibleException;
 import com.medrdv.servicerendezvous.publisher.NotificationPublisher;
 import com.medrdv.servicerendezvous.repository.AppointmentRepository;
+import feign.FeignException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -41,48 +46,77 @@ public class AppointmentService {
                 .orElseThrow(() -> new RuntimeException("Rendez-vous introuvable avec l'ID " + id));
     }
 
-    // === MÉTHODE CORRIGÉE POUR LE TP V4 ===
     public Appointment createAppointment(Appointment appointment, String idempotencyKey) {
-
-        // 1. Vérification stricte de l'idempotence (selon le TP)
-        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 255) {
-            throw new IllegalArgumentException("Clé d'idempotence invalide.");
-        }
-        if (appointmentRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
-            throw new IllegalArgumentException("Opération déjà traitée.");
+        if (idempotencyKey != null && !idempotencyKey.isEmpty()) {
+            Optional<Appointment> existing = appointmentRepository.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                return existing.get();
+            }
         }
 
-        // 2. Vérifier le patient (pas de try/catch, le GlobalExceptionHandler gère)
-        resilientClientService.getPatientSecurise(appointment.getPatientId());
-
-        // 3. Vérifier le docteur
-        resilientClientService.getDoctorSecurise(appointment.getDoctorId());
-
-        // 4. Vérifier le créneau ET la règle métier
-        AvailabilityDTO availability = resilientClientService.getAvailabilitySecurise(
-                appointment.getDoctorId(),
-                appointment.getAvailabilityId()
-        );
-
-        // RÈGLE MÉTIER DU TP : Le créneau doit être libre
-        if (!"LIBRE".equals(availability.getStatut())) {
-            throw new IllegalArgumentException("Refus métier : Ce créneau n'est plus disponible.");
+        try {
+            resilientClientService.getPatientSecurise(appointment.getPatientId());
+        } catch (ServiceExterneIndisponibleException e) {
+            throw e;
+        } catch (FeignException.NotFound e) {
+            throw new RuntimeException("Patient introuvable avec l'ID " + appointment.getPatientId());
         }
 
-        // 5. Si tout est bon, on enregistre avec la clé
+        try {
+            resilientClientService.getDoctorSecurise(appointment.getDoctorId());
+        } catch (ServiceExterneIndisponibleException e) {
+            throw e;
+        } catch (FeignException.NotFound e) {
+            throw new RuntimeException("Docteur introuvable avec l'ID " + appointment.getDoctorId());
+        }
+
+        try {
+            resilientClientService.getAvailabilitySecurise(appointment.getDoctorId(), appointment.getAvailabilityId());
+        } catch (ServiceExterneIndisponibleException e) {
+            throw e;
+        } catch (FeignException.NotFound e) {
+            throw new RuntimeException("Créneau introuvable ou n'appartient pas à ce docteur.");
+        }
+
         appointment.setStatut("DEMANDE");
         appointment.setIdempotencyKey(idempotencyKey);
         return appointmentRepository.save(appointment);
     }
 
+    // === MÉTHODE MODIFIÉE POUR PUBLIER APRÈS LE COMMIT AVEC DESIGN HTML ===
     public Appointment updateStatut(Long id, String nouveauStatut) {
         Appointment appointment = getAppointmentById(id);
         appointment.setStatut(nouveauStatut);
         Appointment savedAppointment = appointmentRepository.save(appointment);
 
         if ("CONFIRME".equalsIgnoreCase(nouveauStatut)) {
-            String message = "Le rendez-vous n°" + savedAppointment.getId() + " a été CONFIRMÉ avec succès.";
-            notificationPublisher.sendNotification(message);
+
+            // Construction du contenu HTML de l'email
+            String htmlContent =
+                    "Bonjour,<br><br>" +
+                            "Nous avons le plaisir de vous confirmer votre rendez-vous médical.<br><br>" +
+                            "<strong>Détails du rendez-vous :</strong><br>" +
+                            "<ul>" +
+                            "<li><strong>Numéro :</strong> " + savedAppointment.getId() + "</li>" +
+                            "<li><strong>Motif :</strong> " + savedAppointment.getMotif() + "</li>" +
+                            "</ul>" +
+                            "Merci de vous présenter 10 minutes avant l'heure prévue.<br><br>" +
+                            "Cordialement,<br>" +
+                            "<strong>L'équipe Med-RDV</strong>";
+
+            NotificationEmailDto emailDto = new NotificationEmailDto(
+                    "patient@email.com", // Idéalement, récupérer l'email du patient via Feign
+                    "Confirmation de votre rendez-vous n°" + savedAppointment.getId(),
+                    htmlContent
+            );
+
+            // Déclenchement APRÈS le commit
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationPublisher.sendNotification(emailDto);
+                }
+            });
         }
 
         return savedAppointment;

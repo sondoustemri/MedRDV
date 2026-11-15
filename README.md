@@ -21,6 +21,7 @@ L'architecture est composée des applications Spring Boot suivantes :
 | **service-patients** | Gestion des patients et dossiers médicaux | `8081` |
 | **service-praticiens** | Gestion des praticiens et des créneaux | `8082` |
 | **service-rendezvous** | Gestion du cycle de vie des rendez-vous | `8083` |
+| **service-notification** | Gestion des notifications asynchrones (RabbitMQ + SMTP) | `8084` |
 
 ![Schéma de l'Architecture](./docs/architecture.png)
 
@@ -132,6 +133,106 @@ L'endpoint `/enriched` agrège les données du rendez-vous, du patient, du dossi
 ![Consultation Enrichie](./docs/capture-consultation-enrichie.png)
 ---
 
+## Jalon V5 : Notifications Asynchrones avec RabbitMQ
+
+Ce jalon ajoute une communication asynchrone entre `service-rendezvous` (producteur) et `service-notification` (consommateur) via RabbitMQ. Après la confirmation d'un rendez-vous, un message JSON est publié dans une file d'attente, et le service de notification envoie un email via un serveur SMTP local (Mailpit).
+
+### Architecture du parcours de notification
+
+![Schéma de l'Architecture V5](./docs/architecture.png)
+
+*   **Producteur** : `service-rendezvous` (port 8083) publie un message JSON après le commit de la transaction.
+*   **Broker** : RabbitMQ (port 5672 pour AMQP, 15672 pour l'interface web).
+*   **File d'attente** : `rendezvous.notification.queue`
+*   **Consommateur** : `service-notification` (port 8084) consomme le message et envoie l'email.
+*   **Serveur SMTP** : Mailpit (port 1025 pour SMTP, 8025 pour l'interface web).
+###  Dépendances ajoutées
+
+Pour implémenter cette communication asynchrone et l'envoi d'emails, nous avons ajouté les dépendances suivantes :
+
+*   **Dans `service-rendezvous` et `service-notification` :**
+    `spring-boot-starter-amqp` (pour la communication avec RabbitMQ).
+*   **Dans `service-notification` :**
+    `spring-boot-starter-mail` (pour l'envoi d'emails via JavaMailSender).
+* 
+###  Commandes Docker
+
+**1. Lancer RabbitMQ :**
+
+`docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management`
+
+-Interface d'administration : http://localhost:15672 (guest/guest)
+
+La file d'attente rendezvous.notification.queue est créée automatiquement.
+
+**2. Lancer Mailpit (serveur SMTP local)**
+
+`docker run -d --name mailpit -p 127.0.0.1:1025:1025 -p 127.0.0.1:8025:8025 axllent/mailpit`
+
+-Boîte de réception virtuelle : http://localhost:8025
+
+### ⚙️ Configurations (Config Server)
+
+Les configurations sont centralisées dans le dossier `config-repo`.
+
+**Dans `service-notification.properties` :**
+```properties
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=guest
+spring.rabbitmq.password=guest
+
+spring.mail.host=localhost
+spring.mail.port=1025
+```
+### 🧪 Requêtes de test pour déclencher la notification
+
+**1. Créer un rendez-vous :**
+```http
+POST http://localhost:8080/service-rendezvous/appointments
+Header : Idempotency-Key: test-v5-001
+Content-Type: application/json
+
+{
+  "patientId": 1,
+  "doctorId": 1,
+  "availabilityId": 1,
+  "motif": "Consultation de contrôle"
+}
+```
+**2. Confirmer le rendez-vous (déclenche l'événement) :**
+PATCH http://localhost:8080/service-rendezvous/appointments/{id}/statut?statut=CONFIRME
+
+###  Preuves de fonctionnement (Parcours complet)
+
+**1. Confirmation du rendez-vous (Postman):**
+
+La requête `PATCH` via la Gateway renvoie un code `200 OK` avec le statut `CONFIRME`. La clé d'idempotence `test-mailpit-003` a bien été prise en compte.
+![Confirmation du rendez-vous](./docs/capture-v5-postman-confirmation.png)
+
+**2. Publication du message (Console Rendezvous):**
+
+La console confirme que le message a été publié après le commit de la transaction dans la base de données.
+![Publication du message](./docs/capture-v5-logs-rendezvous.png)
+
+**3. Consommation et envoi de l'email (Console Notification):**
+
+La console du service de notification montre la réception du message et la confirmation de l'envoi via le serveur SMTP.
+![Consommation et envoi](./docs/capture-v5-logs-notification.png)
+
+**4. Réception de l'email (Mailpit):**
+
+L'email est bien reçu avec un design soigné (en-tête bleu Med-RDV), contenant le numéro du rendez-vous et le motif de la consultation.
+![Réception de l'email](./docs/capture-v5-mailpit-email.png)
+
+### 🧪 Tests des cas d'échec
+
+**1. Échec de communication avec l'interface Mailpit**
+Lors d'un test de rafraîchissement, l'interface web de Mailpit a affiché une erreur `Error sending data to the server`. Cependant, les emails étaient bien stockés et le service de notification a continué de fonctionner normalement, prouvant le découplage entre le service et l'interface d'administration.
+![Erreur Mailpit](./docs/capture-v5-echec-mailpit.png)
+
+
+
 ## Prérequis et Instructions de lancement
 
 ### Prérequis
@@ -149,4 +250,5 @@ L'endpoint `/enriched` agrège les données du rendez-vous, du patient, du dossi
    3.  `service-patients`
    4.  `service-praticiens`
    5.  `service-rendezvous`
-   6.  `gateway-service`
+   6. `service-notification`
+   7.  `gateway-service`

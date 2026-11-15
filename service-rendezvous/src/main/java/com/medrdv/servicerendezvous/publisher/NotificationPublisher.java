@@ -1,6 +1,7 @@
 package com.medrdv.servicerendezvous.publisher;
 
 import com.medrdv.servicerendezvous.config.RabbitMQConfig;
+import com.medrdv.servicerendezvous.dto.NotificationEmailDto;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
@@ -13,8 +14,8 @@ public class NotificationPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void sendNotification(String message) {
+    public void sendNotification(NotificationEmailDto message) {
         rabbitTemplate.convertAndSend(RabbitMQConfig.QUEUE_NAME, message);
-        System.out.println("🚀 Message publié vers RabbitMQ : " + message);
+        System.out.println("🚀 Message publié vers RabbitMQ : " + message.objet());
     }
 }
