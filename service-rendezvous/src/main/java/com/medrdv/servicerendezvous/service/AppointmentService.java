@@ -105,7 +105,7 @@ public class AppointmentService {
                             "<strong>L'équipe Med-RDV</strong>";
 
             NotificationEmailDto emailDto = new NotificationEmailDto(
-                    "patient@email.com", // Idéalement, récupérer l'email du patient via Feign
+                    "patient@email.com",
                     "Confirmation de votre rendez-vous n°" + savedAppointment.getId(),
                     htmlContent
             );
@@ -127,6 +127,7 @@ public class AppointmentService {
         appointmentRepository.delete(appointment);
     }
 
+    // === MÉTHODE MODIFIÉE POUR UTILISER LES APPELS TOLÉRANTS ===
     @Transactional(readOnly = true)
     public AppointmentEnrichedDTO getEnrichedAppointment(Long id) {
         Appointment appointment = getAppointmentById(id);
@@ -134,8 +135,11 @@ public class AppointmentService {
         AppointmentEnrichedDTO enriched = new AppointmentEnrichedDTO();
         enriched.setAppointment(appointment);
 
-        enriched.setPatient(resilientClientService.getPatientSecurise(appointment.getPatientId()));
-        enriched.setDoctor(resilientClientService.getDoctorSecurise(appointment.getDoctorId()));
+        // ⚠️ Utilisation des méthodes TOLÉRANTES (cache + mode dégradé)
+        enriched.setPatient(resilientClientService.getPatientSecuriseTolerant(appointment.getPatientId()));
+        enriched.setDoctor(resilientClientService.getDoctorSecuriseTolerant(appointment.getDoctorId()));
+
+        // Pour le créneau, on garde la méthode stricte (ou on peut la rendre tolérante aussi)
         enriched.setAvailability(resilientClientService.getAvailabilitySecurise(appointment.getDoctorId(), appointment.getAvailabilityId()));
 
         try {

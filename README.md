@@ -201,8 +201,9 @@ Content-Type: application/json
 }
 ```
 **2. Confirmer le rendez-vous (déclenche l'événement) :**
+```
 PATCH http://localhost:8080/service-rendezvous/appointments/{id}/statut?statut=CONFIRME
-
+```
 ###  Preuves de fonctionnement (Parcours complet)
 
 **1. Confirmation du rendez-vous (Postman):**
@@ -230,7 +231,68 @@ L'email est bien reçu avec un design soigné (en-tête bleu Med-RDV), contenant
 **1. Échec de communication avec l'interface Mailpit**
 Lors d'un test de rafraîchissement, l'interface web de Mailpit a affiché une erreur `Error sending data to the server`. Cependant, les emails étaient bien stockés et le service de notification a continué de fonctionner normalement, prouvant le découplage entre le service et l'interface d'administration.
 ![Erreur Mailpit](./docs/capture-v5-echec-mailpit.png)
+---
 
+## Jalon V6 : Résilience, Gestion des Erreurs et Idempotence
+
+Ce jalon ajoute des mécanismes de résilience (Circuit Breaker, Retry, Bulkhead, Cache) pour protéger les appels Feign, ainsi qu'un Rate Limiting sur la Gateway, une gestion centralisée des erreurs et l'idempotence des créations.
+
+### 📦 Dépendances ajoutées
+
+**Dans `service-rendezvous` :**
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-circuitbreaker-resilience4j</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-cache</artifactId>
+</dependency>
+<dependency>
+    <groupId>com.github.ben-manes.caffeine</groupId>
+    <artifactId>caffeine</artifactId>
+</dependency>
+```
+**Dans `gateway-service` :**
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+</dependency>
+```
+### 📸 Preuves de fonctionnement
+
+**1. Comportement normal :**
+
+Cette capture montre le fonctionnement nominal de l'application. On y voit la réponse 200 OK de l'endpoint GET /enriched avec toutes les données agrégées : les informations du rendez-vous, du patient (Dupont), du docteur (Dr. Martin) et du créneau. Cela prouve que les appels Feign fonctionnent correctement quand tous les services sont disponibles.
+![Test normal](./docs/capture-v6-test-normal.png)
+
+**2. Circuit Breaker (service patient éteint) :**
+
+Cette capture prouve l'efficacité du Circuit Breaker. Le service service-patients a été volontairement éteint, et on voit que la requête POST /appointments renvoie immédiatement un code 503 Service Unavailable avec un message clair : "Le service des patients est momentanément indisponible. Réessayez plus tard.". Sans le Circuit Breaker, la requête aurait planté avec une erreur 500 ou aurait attendu un long moment.
+![Circuit Breaker](./docs/capture-v6-circuitbreaker.png)
+
+**3. Idempotence :**
+
+Cette capture montre que l'idempotence fonctionne parfaitement. On y voit la réponse 200 OK d'un POST /appointments avec un rendez-vous existant (ID 3). La requête a été envoyée deux fois avec la même clé Idempotency-Key: 99991, mais le service n'a pas créé de doublon : il a renvoyé le rendez-vous existant. Cela garantit qu'un utilisateur qui clique deux fois sur "Réserver" ne créera qu'un seul rendez-vous.
+![Idempotence](./docs/capture-v6-idempotence.png)
+
+**4. Mode dégradé (Cache) :**
+
+Cette capture illustre le mode dégradé. Alors que le service service-patients est éteint, la requête GET /enriched renvoie un code 200 OK. Les données du patient ("patient": {...}) sont toujours présentes grâce au cache Caffeine qui a été alimenté lors d'une consultation précédente. Si le cache était vide, le champ patient serait à null, mais la requête ne planterait pas. Cela prouve que la consultation reste disponible même en cas de panne partielle.
+![Mode dégradé](./docs/capture-v6-mode-degrade.png)
+
+**5. ControllerAdvice (Erreur Métier) :**
+
+Cette capture montre la gestion centralisée des erreurs. On y voit la réponse 400 Bad Request de l'endpoint GET /appointments/999 (un ID qui n'existe pas). Au lieu de renvoyer une grosse erreur 500 avec une StackTrace Java, le GlobalExceptionHandler renvoie un JSON propre et lisible.
+
+![ControllerAdvice](./docs/capture-v6-controlleradvice.png)
+
+**6. Rate Limiting sur la Gateway :**
+
+Cette capture prouve que le Rate Limiter de la Gateway fonctionne. On y voit les résultats de 20 itérations sur GET /appointments. Les premières requêtes passent en 200 OK, mais à partir de l'itération 11, les requêtes sont bloquées avec un code 429 Too Many Requests. Cela signifie que la Gateway a bien compté les requêtes dans Redis et a bloqué celles qui dépassaient la limite configurée (5 requêtes par seconde).
+![Rate Limiting](./docs/capture-v6-rate-limiting.png)
 
 
 ## Prérequis et Instructions de lancement

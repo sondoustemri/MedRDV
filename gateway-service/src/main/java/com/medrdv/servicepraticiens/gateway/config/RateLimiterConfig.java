@@ -33,8 +33,8 @@ public class RateLimiterConfig {
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                // 1. Route pour service-rendezvous (avec Rate Limiter)
                 .route("service-rendezvous-route", r -> r
+                        .order(-1) // <-- FORCE LA PRIORITÉ SUR LES ROUTES AUTOMATIQUES
                         .path("/service-rendezvous/**")
                         .filters(f -> f
                                 .stripPrefix(1)
@@ -45,20 +45,20 @@ public class RateLimiterConfig {
                         )
                         .uri("lb://service-rendezvous")
                 )
-                // 2. Route pour service-patients
                 .route("service-patients-route", r -> r
+                        .order(-1)
                         .path("/service-patients/**")
                         .filters(f -> f.stripPrefix(1))
                         .uri("lb://service-patients")
                 )
-                // 3. Route pour service-praticiens
                 .route("service-praticiens-route", r -> r
+                        .order(-1)
                         .path("/service-praticiens/**")
                         .filters(f -> f.stripPrefix(1))
                         .uri("lb://service-praticiens")
                 )
-                // 4. Route pour service-notification (optionnel)
                 .route("service-notification-route", r -> r
+                        .order(-1)
                         .path("/service-notification/**")
                         .filters(f -> f.stripPrefix(1))
                         .uri("lb://service-notification")

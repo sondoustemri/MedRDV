@@ -6,30 +6,87 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Erreurs métier (ex: créneau déjà pris, patient suspendu)
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleBusinessException(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest().body(ex.getMessage());
+    // 1. Gère les erreurs de type "Service Indisponible" (Circuit Breaker)
+    @ExceptionHandler(ServiceExterneIndisponibleException.class)
+    public ResponseEntity<Map<String, Object>> handleServiceIndisponible(ServiceExterneIndisponibleException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value()); // 503
+        body.put("error", "Service Indisponible");
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
     }
 
-    // Ressource introuvable (404 via Feign)
+    // 2. Gère les erreurs métier (ex: Rendez-vous introuvable)
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
+        // Chercher si la cause est une ServiceExterneIndisponibleException
+        Throwable cause = ex;
+        while (cause != null) {
+            if (cause instanceof ServiceExterneIndisponibleException) {
+                return handleServiceIndisponible((ServiceExterneIndisponibleException) cause);
+            }
+            cause = cause.getCause();
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.BAD_REQUEST.value()); // 400
+        body.put("error", "Erreur Métier");
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    // 3. Gère les erreurs Feign (404)
     @ExceptionHandler(FeignException.NotFound.class)
-    public ResponseEntity<String> handleFeignNotFound(FeignException.NotFound ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Ressource externe introuvable (Patient, Docteur ou Créneau).");
+    public ResponseEntity<Map<String, Object>> handleFeignNotFound(FeignException.NotFound ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.NOT_FOUND.value()); // 404
+        body.put("error", "Ressource Introuvable");
+        body.put("message", "Ressource externe introuvable (Patient, Docteur ou Créneau).");
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
-    // Erreurs de communication (Timeout, Connexion refusée)
+    // 4. Gère les autres erreurs Feign (503, 502, etc.)
     @ExceptionHandler(FeignException.class)
-    public ResponseEntity<String> handleFeignException(FeignException ex) {
+    public ResponseEntity<Map<String, Object>> handleFeignException(FeignException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+
         if (ex.status() == -1) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Échec de communication avec un service distant.");
+            body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+            body.put("error", "Service Indisponible");
+            body.put("message", "Échec de communication avec un service distant.");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
         }
         if (ex.status() == 503) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Service distant indisponible.");
+            body.put("status", HttpStatus.SERVICE_UNAVAILABLE.value());
+            body.put("error", "Service Indisponible");
+            body.put("message", "Service distant indisponible.");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
         }
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("Erreur HTTP du service distant : " + ex.status());
+        body.put("status", HttpStatus.BAD_GATEWAY.value());
+        body.put("error", "Bad Gateway");
+        body.put("message", "Erreur HTTP du service distant : " + ex.status());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
+    // 5. Gère toutes les autres erreurs inattendues
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGlobalException(Exception ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value()); // 500
+        body.put("error", "Erreur Interne");
+        body.put("message", "Une erreur inattendue est survenue : " + ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 }
