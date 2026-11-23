@@ -47,13 +47,15 @@ public class AppointmentService {
     }
 
     public Appointment createAppointment(Appointment appointment, String idempotencyKey) {
-        if (idempotencyKey != null && !idempotencyKey.isEmpty()) {
-            Optional<Appointment> existing = appointmentRepository.findByIdempotencyKey(idempotencyKey);
-            if (existing.isPresent()) {
-                return existing.get();
-            }
+        // 1. Vérification de l'idempotence : on LÈVE une exception si la clé existe
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 255) {
+            throw new IllegalArgumentException("Clé d'idempotence invalide.");
+        }
+        if (appointmentRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
+            throw new IllegalArgumentException("Opération déjà traitée."); // ✅ 400 Bad Request
         }
 
+        // 2. Vérification du patient
         try {
             resilientClientService.getPatientSecurise(appointment.getPatientId());
         } catch (ServiceExterneIndisponibleException e) {
@@ -62,6 +64,7 @@ public class AppointmentService {
             throw new RuntimeException("Patient introuvable avec l'ID " + appointment.getPatientId());
         }
 
+        // 3. Vérification du docteur
         try {
             resilientClientService.getDoctorSecurise(appointment.getDoctorId());
         } catch (ServiceExterneIndisponibleException e) {
@@ -70,6 +73,7 @@ public class AppointmentService {
             throw new RuntimeException("Docteur introuvable avec l'ID " + appointment.getDoctorId());
         }
 
+        // 4. Vérification du créneau
         try {
             resilientClientService.getAvailabilitySecurise(appointment.getDoctorId(), appointment.getAvailabilityId());
         } catch (ServiceExterneIndisponibleException e) {
@@ -78,6 +82,7 @@ public class AppointmentService {
             throw new RuntimeException("Créneau introuvable ou n'appartient pas à ce docteur.");
         }
 
+        // 5. Sauvegarde
         appointment.setStatut("DEMANDE");
         appointment.setIdempotencyKey(idempotencyKey);
         return appointmentRepository.save(appointment);

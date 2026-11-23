@@ -1,11 +1,11 @@
 {
   "info": {
-    "_postman_id": "4542f57a-52cf-477a-8d27-aa598f4aec31",
+    "_postman_id": "2f3c5a61-f038-446d-a6c0-447f17584bd3",
     "name": "My Collection Copy",
     "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "53713163",
-    "_collection_link": "https://go.postman.co/collection/53713163-4542f57a-52cf-477a-8d27-aa598f4aec31?source=collection_link"
+    "_exporter_id": "52734372",
+    "_collection_link": "https://go.postman.co/collection/52734372-2f3c5a61-f038-446d-a6c0-447f17584bd3?source=collection_link"
   },
   "item": [
     {
@@ -123,6 +123,110 @@
                   ],
                   "port": "8081",
                   "path": [
+                    "patients",
+                    "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Créer Patient - DTO erreur email",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"nom\": \"Dupont\",\r\n    \"email\": \"jean.dupontemail.com\",\r\n    \"dateNaissance\": \"1990-01-01\",\r\n    \"telephone\": \"0612345678\",\r\n    \"numeroSecu\": \"1234567890123\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/patients",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "patients"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Créer Patient - dynamique",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"nom\": \"Marc\",\r\n    \"email\": \"marc.dupont@email.com\",\r\n    \"dateNaissance\": \"1990-02-01\",\r\n    \"telephone\": \"0612385488\",\r\n    \"numeroSecu\": \"1234567890456\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8080/service-patients/patients",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8080",
+                  "path": [
+                    "service-patients",
+                    "patients"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Lister Patients - dynamique",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/service-patients/patients",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8080",
+                  "path": [
+                    "service-patients",
+                    "patients"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Voir Patient par ID - dynamique",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/service-patients/patients/1",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8080",
+                  "path": [
+                    "service-patients",
                     "patients",
                     "1"
                   ]
@@ -265,15 +369,6 @@
               "request": {
                 "method": "GET",
                 "header": [],
-                "body": {
-                  "mode": "raw",
-                  "raw": "",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                },
                 "url": {
                   "raw": "http://localhost:8081/patients/999",
                   "protocol": "http",
@@ -401,6 +496,26 @@
                   "path": [
                     "doctors",
                     "1"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Lister Docteurs",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8080/service-praticiens/doctors",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8080",
+                  "path": [
+                    "service-praticiens",
+                    "doctors"
                   ]
                 }
               },
@@ -536,10 +651,28 @@
       "name": "Med-RDV - Service Rendez-vous",
       "item": [
         {
-          "name": "Créer Rendez-vous",
+          "name": "Créer Rendez-vous - Valide/id patient incorrect/créneau introuvable",
           "request": {
             "method": "POST",
-            "header": [],
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "test-001",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "test-002",
+                "type": "text",
+                "disabled": true
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "test-erreur-503",
+                "type": "text",
+                "disabled": true
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\r\n    \"patientId\": 1,\r\n    \"doctorId\": 1,\r\n    \"availabilityId\": 1,\r\n    \"motif\": \"Consultation de contrôle\"\r\n}",
@@ -604,6 +737,70 @@
                   "key": "statut",
                   "value": "CONFIRME"
                 }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lister Rendez-vous - dynamique",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/service-rendezvous/appointments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "service-rendezvous",
+                "appointments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Voir Rendez-vous Enrichi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/appointments/1/enriched",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "appointments",
+                "1",
+                "enriched"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lister Rendez-vous introuvable",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/appointments/9999",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "appointments",
+                "9999"
               ]
             }
           },
@@ -682,6 +879,63 @@
           ]
         },
         "description": "This is a POST request, submitting data to an API via the request body. This request submits JSON data, and the data is reflected in the response.\n\nA successful POST request typically returns a `200 OK` or `201 Created` response code."
+      },
+      "response": []
+    },
+    {
+      "name": "Observation des routes (Actuator)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/actuator/gateway/routes",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "actuator",
+            "gateway",
+            "routes"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Configurations locales et depuis configserver - Patients",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8888/service-patients/default",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8888",
+          "path": [
+            "service-patients",
+            "default"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "URL RabbitMQ",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:15672",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "15672"
+        }
       },
       "response": []
     }
