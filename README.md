@@ -8,7 +8,7 @@ L'unité de traitement principale est le Rendez-vous, qui suit un cycle de vie s
 ## Diagramme de Classes UML Global
 Ce diagramme présente les entités de chaque service métier. Les interactions entre services sont matérialisées par des flèches de dépendance en pointillés.
 
-![Diagramme de Classes UML](./docs/uml-global.png)
+![Diagramme de Classes UML](./docs/uml-globalfinal.png)
 
 ## Schéma de l'Architecture
 L'architecture est composée des applications Spring Boot suivantes :
